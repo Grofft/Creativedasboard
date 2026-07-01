@@ -231,6 +231,7 @@ pre#scriptCode{background:var(--code-bg);border:1px solid var(--line);border-rad
         <div class="field"><label>Jenis Konten</label><select id="inVidTipe"></select></div>
         <div class="field"><label>Platform</label><select id="inVidPlatform"></select></div>
         <div class="field"><label>Produk</label><select id="inVidProduk"></select></div>
+        <div class="field" style="grid-column:span 2;"><label>Link Hasil (Google Drive / URL Konten)</label><input type="url" id="inVidLink" placeholder="https://drive.google.com/..."></div>
       </div>
       <p class="muted-note" style="margin-bottom:10px;">👉 Views, likes, komentar & share bisa diisi nanti lewat <b>Update Performa</b> di bawah.</p>
       <button class="btn primary" id="btnSaveVideo">Simpan Konten</button>
@@ -263,7 +264,7 @@ pre#scriptCode{background:var(--code-bg);border:1px solid var(--line);border-rad
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Tanggal</th><th>Judul</th><th>Kreator/Editor</th><th>Tipe</th><th>Produk</th><th>Platform</th><th>Akun Posting</th><th>Views</th><th>Likes</th><th>Komentar</th><th>Share</th><th>Engagement Rate</th><th>Terakhir Update</th><th>Aksi</th></tr></thead>
+          <thead><tr><th>Tanggal</th><th>Judul</th><th>Kreator/Editor</th><th>Tipe</th><th>Produk</th><th>Platform</th><th>Akun Posting</th><th>Views</th><th>Likes</th><th>Komentar</th><th>Share</th><th>Engagement Rate</th><th>Link Hasil</th><th>Terakhir Update</th><th>Aksi</th></tr></thead>
           <tbody id="tblVideos"></tbody>
           <tfoot><tr><td colspan="7">Total</td><td id="ftViews">0</td><td id="ftLikes">0</td><td id="ftComments">0</td><td id="ftShares">0</td><td>-</td><td>-</td><td>-</td></tr></tfoot>
         </table>
@@ -534,9 +535,10 @@ document.getElementById('btnSaveVideo').onclick = async ()=>{
   const tipe = document.getElementById('inVidTipe').value;
   const platform = document.getElementById('inVidPlatform').value;
   const produk = document.getElementById('inVidProduk').value;
+  const linkHasil = document.getElementById('inVidLink').value.trim();
   const msg = document.getElementById('videoSaveMsg');
   if(!tanggal || !judul){ msg.textContent='Isi tanggal & judul terlebih dahulu.'; msg.style.color='var(--red)'; return; }
-  const rec = {tanggal, judul, nama, tipe, produk, platform, views:0, likes:0, comments:0, shares:0, lastUpdated:''};
+  const rec = {tanggal, judul, nama, tipe, produk, platform, linkHasil, views:0, likes:0, comments:0, shares:0, lastUpdated:''};
   VIDEOS.push(rec);
   saveLocalState(); render(); refreshPerfSelect();
   msg.textContent = 'Tersimpan: '+judul+' — mengirim ke spreadsheet...'; msg.style.color='var(--muted)';
@@ -545,6 +547,7 @@ document.getElementById('btnSaveVideo').onclick = async ()=>{
   else if(status==='no-url'){ msg.textContent='Tersimpan di dashboard. Belum terhubung ke spreadsheet (isi URL Apps Script di tab Integrasi).'; msg.style.color='var(--yellow)'; }
   else { msg.textContent='Tersimpan di dashboard, tapi gagal mengirim ke spreadsheet.'; msg.style.color='var(--red)'; }
   document.getElementById('inVidJudul').value='';
+  document.getElementById('inVidLink').value='';
 };
 
 /* ============== REQUEST KONTEN ============== */
@@ -593,7 +596,11 @@ function renderRequests(){
         </select>
         ${r.convertedToVideo?'<div style="font-size:10px;color:var(--pink);margin-top:3px;">✓ masuk Daftar Konten</div>':''}
       </td>
-      <td style="max-width:220px;white-space:normal;">${escapeHtml(r.brief||'')}</td>
+      <td style="max-width:180px;">
+        ${r.brief && r.brief.length > 60
+          ? `<span class="brief-short-${r._idx}">${escapeHtml(r.brief.slice(0,60))}... <button onclick="document.querySelector('.brief-short-${r._idx}').style.display='none';document.querySelector('.brief-full-${r._idx}').style.display='inline';" style="background:none;border:none;color:var(--cyan);cursor:pointer;font-size:11px;padding:0;">Selengkapnya</button></span><span class="brief-full-${r._idx}" style="display:none;">${escapeHtml(r.brief)} <button onclick="document.querySelector('.brief-full-${r._idx}').style.display='none';document.querySelector('.brief-short-${r._idx}').style.display='inline';" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;">Sembunyikan</button></span>`
+          : escapeHtml(r.brief||'')}
+      </td>
       <td><button class="btn" data-idx="${r._idx}" data-act="delReq" style="font-size:11px;padding:4px 8px;">Hapus</button></td>
     </tr>
   `).join('');
@@ -1122,6 +1129,9 @@ function renderVideoTable(range, resetPage){
     const akunBadge = v.akunPosting
       ? `<span class="tag" style="background:rgba(63,216,212,.15);color:var(--cyan);border:1px solid var(--cyan);font-size:11px;">${escapeHtml(v.akunPosting)}</span>`
       : `<span style="color:var(--muted);font-size:11px;">—</span>`;
+    const linkCell = v.linkHasil
+      ? `<a href="${escapeHtml(v.linkHasil)}" target="_blank" rel="noopener" style="color:var(--cyan);font-size:11px;white-space:nowrap;">🔗 Buka</a>`
+      : `<span style="color:var(--muted);font-size:11px;">—</span>`;
     return `<tr>
       <td>${fmtDateID(parseDate(v.tanggal))}</td><td>${escapeHtml(v.judul)}</td><td>${escapeHtml(v.nama)}</td>
       <td><span class="tag ${tipeTagClass(v.tipe)}">${v.tipe||'-'}</span></td>
@@ -1130,10 +1140,11 @@ function renderVideoTable(range, resetPage){
       <td>${akunBadge}</td>
       <td>${numFmt(v.views)}</td><td>${numFmt(v.likes)}</td><td>${numFmt(v.comments)}</td><td>${numFmt(v.shares)}</td>
       <td>${engagementRate(v).toFixed(2)}%</td>
+      <td>${linkCell}</td>
       <td>${lastUpd}</td>
       <td><button class="btn" style="padding:4px 10px;font-size:11px;" onclick="fillPerfForm(${globalIdx})">✏️ Update</button></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="13" class="muted-note" style="padding:16px;">Tidak ada konten yang cocok dengan filter.</td></tr>';
+  }).join('') || '<tr><td colspan="14" class="muted-note" style="padding:16px;">Tidak ada konten yang cocok dengan filter.</td></tr>';
 
   // Footer totals (all filtered, not just page)
   document.getElementById('ftViews').textContent    = numFmt(vids.reduce((s,v)=>s+(v.views||0),0));
@@ -1480,7 +1491,7 @@ function handleWrite(data) {
       data.tanggal, data.judul, data.nama, data.tipe, data.produk || '',
       data.platform, data.views || 0, data.likes || 0,
       data.comments || 0, data.shares || 0,
-      data.lastUpdated || '', data.akunPosting || ''
+      data.lastUpdated || '', data.akunPosting || '', data.linkHasil || ''
     ]);
 
   } else if (data.sheetType === 'video_update') {
@@ -1488,14 +1499,14 @@ function handleWrite(data) {
     if (!sh) return { status: 'error', message: 'Sheet Produksi tidak ditemukan' };
     var lastRow = sh.getLastRow();
     var found = false;
-    var rows = lastRow > 0 ? sh.getRange(1, 1, lastRow, 12).getValues() : [];
+    var rows = lastRow > 0 ? sh.getRange(1, 1, lastRow, 13).getValues() : [];
     for (var i = 1; i < rows.length; i++) {
       if (String(rows[i][1]).trim() === String(data.judul).trim()) {
-        sh.getRange(i + 1, 1, 1, 12).setValues([[
+        sh.getRange(i + 1, 1, 1, 13).setValues([[
           data.tanggal, data.judul, data.nama, data.tipe, data.produk || '',
           data.platform, data.views || 0, data.likes || 0,
           data.comments || 0, data.shares || 0,
-          data.lastUpdated || '', data.akunPosting || ''
+          data.lastUpdated || '', data.akunPosting || '', data.linkHasil || ''
         ]]);
         found = true;
         break;
@@ -1506,7 +1517,7 @@ function handleWrite(data) {
         data.tanggal, data.judul, data.nama, data.tipe, data.produk || '',
         data.platform, data.views || 0, data.likes || 0,
         data.comments || 0, data.shares || 0,
-        data.lastUpdated || '', data.akunPosting || ''
+        data.lastUpdated || '', data.akunPosting || '', data.linkHasil || ''
       ]);
     }
 
@@ -1662,7 +1673,7 @@ async function pullFromSheet(silent){
       const d = parseDate(r.tanggal);
       if(!d || !r.judul) return;
       VIDEOS.push({ tanggal: fmtISO(d), judul: r.judul, nama: r.nama, tipe: r.tipe||'Video', produk: r.produk||'', platform: r.platform,
-        views: parseFloat(r.views)||0, likes: parseFloat(r.likes)||0, comments: parseFloat(r.comments)||0, shares: parseFloat(r.shares)||0, lastUpdated: r.lastupdated||'', akunPosting: r.akunposting||'' });
+        views: parseFloat(r.views)||0, likes: parseFloat(r.likes)||0, comments: parseFloat(r.comments)||0, shares: parseFloat(r.shares)||0, lastUpdated: r.lastupdated||'', akunPosting: r.akunposting||'', linkHasil: r.linkhasil||'' });
       if(r.nama && !TEAM.includes(r.nama)) TEAM.push(r.nama);
       countVideo++;
     });
